@@ -1,0 +1,34 @@
+# Large media
+*.mp4
+*.avi
+*.mov
+
+# Office temp lock files
+~$*
+
+# Node
+node_modules/
+package-lock.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pkl.bak
+
+# Outputs (generated at runtime)
+outputs/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.nav
+*.snm
+*.vrb
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.blg
+*.bbl

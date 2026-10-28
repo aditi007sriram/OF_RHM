@@ -1,0 +1,9 @@
+# Run on Ubuntu/Debian or Raspberry Pi OS
+# sudo apt install mininet openvswitch-switch nmap
+# pip install -r requirements.txt --break-system-packages
+ryu
+eventlet==0.30.2
+scikit-learn
+numpy
+joblib
+# xgboost  # optional: GPU-trained models load fine without xgboost on Pi

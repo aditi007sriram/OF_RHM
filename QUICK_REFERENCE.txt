@@ -1,0 +1,218 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    VANISHING ADDRESS - QUICK REFERENCE CARD
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 THE CORE IDEA IN 30 SECONDS
+───────────────────────────────────────────────────────────────────────────────
+  Real IPs: 10.0.0.1, 10.0.0.2, 10.0.0.3  (HIDDEN from internet)
+  Virtual IPs: 172.16.42.99, 172.16.88.77, 172.16.15.22  (SEEN by attacker)
+  Every 30s: NEW RANDOM VIPs  (attacker loses track!)
+
+
+📁 FILES AT A GLANCE
+───────────────────────────────────────────────────────────────────────────────
+
+  requirements.txt       │ pip install ryu, eventlet
+                         │ What you need to run this
+
+  topology.py           │ CREATE THE NETWORK
+                         │ • Hosts: h1, h2, h3, attacker
+                         │ • Switch: s1 (OpenFlow)
+                         │ • Controller: Ryu on port 6653
+                         │ Run: sudo python3 topology.py
+
+  demo.py               │ RUN THE FULL TEST
+                         │ 1. Start network
+                         │ 2. Warm up (let controller learn)
+                         │ 3. Attacker scans (Nmap) → finds VIPs
+                         │ 4. Wait 35 seconds (rotation happens)
+                         │ 5. Attacker scans again → DIFFERENT VIPs!
+                         │ 6. Verify: No overlap = SUCCESS ✅
+                         │ Run: sudo python3 demo.py
+
+  ui.html               │ BEAUTIFUL DASHBOARD
+                         │ • Network diagram with animated packets
+                         │ • Countdown timer (next rotation in Xs)
+                         │ • Event log (what's happening)
+                         │ • Flow table (VIP → Real IP mapping)
+                         │ • LED indicators (mutation, attack)
+                         │ Open: Just click the file
+
+  controller.py         │ THE BRAIN (not shown yet)
+                         │ • Assigns VIPs randomly
+                         │ • Rotates every 30 seconds
+                         │ • Detects attacks
+                         │ • Tells switch what to do
+
+
+🚀 HOW TO RUN IT
+───────────────────────────────────────────────────────────────────────────────
+
+  JUST THE DASHBOARD (Simulation Mode):
+  $ open ui.html   # Click "Force Rotation" button to see it work
+
+  FULL REAL DEMO:
+  $ # Terminal 1
+  $ ryu-manager controller.py
+
+  $ # Terminal 2 (wait for Terminal 1 to say "running")
+  $ sudo python3 demo.py
+
+
+🔄 PACKET FLOW (How It Works)
+───────────────────────────────────────────────────────────────────────────────
+
+  OUTGOING (Host → Internet):
+  h1 app: "Send to 8.8.8.8"
+  h1 kernel: SRC=10.0.0.1, DST=8.8.8.8
+  SWITCH (T_OUT table): SRC=10.0.0.1 → REWRITE TO → 172.16.42.99
+  Internet sees: SRC=172.16.42.99, DST=8.8.8.8 ✅
+
+  INCOMING (Internet → Host):
+  Google: SRC=8.8.8.8, DST=172.16.42.99 (the VIP!)
+  SWITCH (T_IN table): DST=172.16.42.99 → REWRITE TO → 10.0.0.1
+  h1 app: Gets response from 8.8.8.8 ✅ (doesn't know about VIPs)
+
+
+⏱️ ROTATION TIMELINE
+───────────────────────────────────────────────────────────────────────────────
+
+  t=0s:   Controller assigns VIPs
+          h1 → 172.16.42.99
+          h2 → 172.16.88.77
+          h3 → 172.16.15.22
+
+  t=30s:  🔄 ROTATION HAPPENS
+          Old VIPs: DISCARDED
+          New VIPs generated:
+          h1 → 172.16.61.8
+          h2 → 172.16.200.44
+          h3 → 172.16.9.123
+
+  t=60s:  🔄 ROTATION HAPPENS AGAIN
+  t=90s:  🔄 ROTATION HAPPENS AGAIN
+  ... (forever)
+
+
+🎓 KEY CONCEPTS
+───────────────────────────────────────────────────────────────────────────────
+
+  OPENFLOW:
+    Protocol between switch and controller
+    Switch = dumb (just follows orders)
+    Controller = smart (decides what to do)
+    Port 6653 = OpenFlow communication
+
+  MININET:
+    Virtual network simulator
+    No real hardware needed
+    Each host is a Linux namespace
+    Can run real tools: ping, nmap, iperf, etc.
+
+  RYU:
+    OpenFlow controller framework (Python)
+    Manages the switch behavior
+    Implements MTD logic (VIP assignment, rotation)
+
+  VIP (Virtual IP):
+    Temporary IP address generated randomly
+    Range: 172.16.0.0/16 (65,534 possible addresses)
+    Every host gets one, every 30 seconds it changes
+
+  FLOW TABLE:
+    T_OUT: Outgoing traffic rewriting
+    T_IN: Incoming traffic rewriting
+    T_L2: Forwarding rules
+
+
+⚠️ ATTACK DETECTION
+───────────────────────────────────────────────────────────────────────────────
+
+  Normal: Attacker sends occasional pings
+  Detected: Attacker sends 3+ probes in 10 seconds
+  Trigger: EMERGENCY ROTATION (rotate NOW, not wait 30s)
+  Result: Attacker's scan results become useless
+
+
+🧩 NETWORK LAYOUT
+───────────────────────────────────────────────────────────────────────────────
+
+           h1 (10.0.0.1)  ──┐
+           h2 (10.0.0.2)  ──┤── s1 ← 6653 → Ryu
+           h3 (10.0.0.3)  ──┤
+       attacker (10.0.0.99) ┘
+
+  s1 = OpenFlow Switch (OVS)
+  Runs flow tables (T_OUT, T_IN, T_L2)
+  Follows commands from Ryu
+
+
+💡 EXAMPLE: ATTACKER SCANS
+───────────────────────────────────────────────────────────────────────────────
+
+  BEFORE ROTATION:
+  $ nmap -sn 172.16.0.0/16
+  Nmap scan report for 172.16.42.99   ← Found h1
+  Nmap scan report for 172.16.88.77   ← Found h2
+  Nmap scan report for 172.16.15.22   ← Found h3
+
+  [WAIT 30 SECONDS — ROTATION HAPPENS]
+
+  AFTER ROTATION:
+  $ nmap -sn 172.16.0.0/16
+  Nmap scan report for 172.16.61.8    ← DIFFERENT! (h1)
+  Nmap scan report for 172.16.200.44  ← DIFFERENT! (h2)
+  Nmap scan report for 172.16.9.123   ← DIFFERENT! (h3)
+
+  ✅ ATTACKER'S INTEL IS USELESS!
+
+
+🐛 DEBUGGING CHECKLIST
+───────────────────────────────────────────────────────────────────────────────
+
+  ☐ Ryu running?               ps aux | grep ryu-manager
+  ☐ Controller connected?      Check "registered LLDP packet in"
+  ☐ Hosts can ping?            mininet> h1 ping -c1 h2
+  ☐ Switch has flows?          mininet> s1 ovs-ofctl dump-flows s1
+  ☐ Attacker can scan?         mininet> attacker nmap -sn 172.16.0.0/16
+  ☐ VIPs changing?             Watch ui.html countdown
+
+
+📊 DEMO.PY OUTPUT BREAKDOWN
+───────────────────────────────────────────────────────────────────────────────
+
+  Step 1: Add VIP routes (so packets can reach 172.16.0.0/16)
+  Step 2: Attacker scans (sees Addresses: {172.16.42.99, ...})
+  Step 3: Wait 35 seconds (includes one 30s rotation)
+  Step 4: Attacker scans again (sees DIFFERENT Addresses)
+  Result: PASS = Zero overlap ✅
+
+
+🎮 EXPERIMENT IDEAS
+───────────────────────────────────────────────────────────────────────────────
+
+  1. Speed up rotation:        Edit ui.html: ROT_MS = 15000 (15 seconds)
+  2. Change VIP subnet:        Edit demo.py: SCAN_SUBNET = "192.168.10.0/16"
+  3. Add 4th host:             topology.py: h4 = net.addHost("h4", ...)
+  4. Slow down nmap:           demo.py: SCAN_FLAGS = "-sn -T1"
+  5. Trigger emergency rotation: ui.html: Click "Simulate Attack" button
+
+
+✅ VOCABULARY CHECKLIST
+───────────────────────────────────────────────────────────────────────────────
+
+  Understand these = You understand the project!
+
+  ☐ Real IP         vs  ☐ Virtual IP
+  ☐ Outgoing (egress)  vs  ☐ Incoming (ingress)
+  ☐ MAC address        vs  ☐ IP address
+  ☐ Mininet            vs  ☐ Real network
+  ☐ OpenFlow           vs  ☐ Regular networking
+  ☐ Controller logic   vs  ☐ Switch behavior
+  ☐ Flow table         vs  ☐ Forwarding rule
+  ☐ Port 6653          vs  ☐ Port 8080 (REST API)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  NEXT STEPS: Open LEARNING_GUIDE.md for deep dive!
+═══════════════════════════════════════════════════════════════════════════════
